@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Net Ocean</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    /* Mobile-first tweaks */
+    html, body { height: 100%; }
+    .btn { @apply px-3 py-2 rounded-xl shadow text-sm font-medium; }
+    .card { @apply rounded-2xl shadow p-4 bg-white/70 dark:bg-zinc-900/70 backdrop-blur; }
+    .muted { @apply text-zinc-500 dark:text-zinc-400; }
+    .mono { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100 dark:from-zinc-900 dark:to-zinc-950 text-zinc-900 dark:text-zinc-100">
+  <div class="max-w-3xl mx-auto p-4 space-y-4">
+    <header class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">⛵️ Net Ocean</h1>
+      <div class="flex items-center gap-2">
+        <button id="btnStorage" class="btn bg-amber-200/80 hover:bg-amber-300 dark:bg-amber-900/60">Storage</button>
+        <button id="btnRefresh" class="btn bg-sky-200/80 hover:bg-sky-300 dark:bg-sky-900/60">Refresh</button>
+        <button id="btnSave" class="btn bg-emerald-200/80 hover:bg-emerald-300 dark:bg-emerald-900/60">Save</button>
+      </div>
+    </header>
+
+    <!-- Auth / Onboarding -->
+    <section id="authCard" class="card">
+      <h2 class="font-semibold text-lg">Captain Login</h2>
+      <p class="muted text-sm mt-1">Simple friends-only auth. Stored in shared JSON as plaintext.</p>
+      <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="block">
+          <span class="muted text-xs">Captain ID</span>
+          <input id="authId" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70" placeholder="e.g. alice" />
+        </label>
+        <label class="block">
+          <span class="muted text-xs">Password</span>
+          <input id="authPw" type="password" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70" placeholder="••••••" />
+        </label>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button id="btnLogin" class="btn bg-sky-200/80 hover:bg-sky-300 dark:bg-sky-900/60">Login</button>
+        <button id="btnRegister" class="btn bg-emerald-200/80 hover:bg-emerald-300 dark:bg-emerald-900/60">Register</button>
+      </div>
+      <div id="authNote" class="mt-2 text-xs muted"></div>
+    </section>
+
+    <!-- Main game UI -->
+    <section id="gameCard" class="card hidden">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm muted">Logged in as</div>
+          <div class="font-semibold" id="uiCaptain">—</div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm muted">Gold</div>
+          <div class="text-xl mono" id="uiGold">0</div>
+        </div>
+      </div>
+
+      <!-- Location & travel -->
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-3">
+          <div class="font-semibold">Port & Travel</div>
+          <div class="mt-2 text-sm">Current port: <span id="uiPort" class="font-semibold">—</span></div>
+          <div id="travelStatus" class="mt-2 text-sm"></div>
+          <div class="mt-3 grid grid-cols-1 gap-2">
+            <label class="block">
+              <span class="muted text-xs">Set destination</span>
+              <select id="dstPort" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70"></select>
+            </label>
+            <button id="btnPlan" class="btn bg-amber-200/80 hover:bg-amber-300 dark:bg-amber-900/60">Plan Voyage</button>
+            <div id="planSummary" class="text-xs muted"></div>
+            <button id="btnDepart" class="btn bg-emerald-200/80 hover:bg-emerald-300 dark:bg-emerald-900/60 disabled:opacity-50" disabled>Depart</button>
+          </div>
+        </div>
+
+        <div class="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-3">
+          <div class="font-semibold">Supplies</div>
+          <div class="grid grid-cols-3 gap-2 mt-2">
+            <div>
+              <div class="muted text-xs">Food</div>
+              <div class="mono" id="uiFood">0</div>
+            </div>
+            <div>
+              <div class="muted text-xs">Water</div>
+              <div class="mono" id="uiWater">0</div>
+            </div>
+            <div>
+              <div class="muted text-xs">Crew</div>
+              <div class="mono" id="uiCrew">0</div>
+            </div>
+          </div>
+          <div class="mt-2 grid grid-cols-3 gap-2">
+            <button id="btnBuyFood" class="btn bg-sky-200/80">+ Food</button>
+            <button id="btnBuyWater" class="btn bg-sky-200/80">+ Water</button>
+            <button id="btnHireCrew" class="btn bg-sky-200/80">+ Crew</button>
+          </div>
+          <div class="text-xs muted mt-2">Supplies consume while traveling (food & water scale with crew and time).</div>
+        </div>
+      </div>
+
+      <!-- Market -->
+      <div class="mt-4 bg-white/50 dark:bg-zinc-800/50 rounded-xl p-3">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold">Market</div>
+          <div class="text-sm">Cargo used: <span id="uiCargoUsed" class="mono">0</span>/<span id="uiCargoCap" class="mono">0</span></div>
+        </div>
+        <div id="marketList" class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+      </div>
+
+      <!-- Fleet & Ships -->
+      <div class="mt-4 bg-white/50 dark:bg-zinc-800/50 rounded-xl p-3">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold">Fleet</div>
+          <button id="btnBuyShip" class="btn bg-amber-200/80">Buy Ship</button>
+        </div>
+        <div id="fleetList" class="mt-2 grid grid-cols-1 gap-2"></div>
+      </div>
+
+      <!-- Scoreboard & Local Fleets in Port -->
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-3">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold">Scoreboard</div>
+            <button id="btnReloadScore" class="btn bg-sky-200/80">Reload</button>
+          </div>
+          <div id="scoreboard" class="mt-2 text-sm"></div>
+        </div>
+        <div class="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-3">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold">Fleets in Port</div>
+            <button id="btnAttackRefresh" class="btn bg-sky-200/80">Refresh</button>
+          </div>
+          <div id="portFleets" class="mt-2 text-sm"></div>
+        </div>
+      </div>
+
+      <div id="statusBar" class="mt-3 text-xs muted"></div>
+    </section>
+  </div>
+
+  <!-- Storage modal -->
+  <dialog id="storageDlg" class="rounded-2xl max-w-lg w-[90%] p-0">
+    <form method="dialog" class="card !rounded-2xl">
+      <h3 class="font-semibold text-lg">Shared Storage (GitHub Contents API)</h3>
+      <p class="muted text-sm mt-1">Token stays in your browser (localStorage). Commits to a central JSON file for everyone.</p>
+      <div class="mt-3 grid grid-cols-1 gap-2">
+        <label class="block">
+          <span class="muted text-xs">Owner</span>
+          <input id="ghOwner" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70" placeholder="e.g. eisenjimmy" />
+        </label>
+        <label class="block">
+          <span class="muted text-xs">Repo</span>
+          <input id="ghRepo" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70" placeholder="e.g. netocean-state" />
+        </label>
+        <label class="block">
+          <span class="muted text-xs">Branch</span>
+          <input id="ghBranch" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70" value="main" />
+        </label>
+        <label class="block">
+          <span class="muted text-xs">Path to JSON</span>
+          <input id="ghPath" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70" value="state/netocean.json" />
+        </label>
+        <label class="block">
+          <span class="muted text-xs">Fine‑grained PAT (contents:write to that repo)</span>
+          <input id="ghToken" type="password" class="w-full rounded-lg border px-3 py-2 bg-white/70 dark:bg-zinc-800/70" placeholder="ghp_..." />
+        </label>
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        <button id="btnStorageLoad" class="btn bg-sky-200/80" value="">Load</button>
+        <button class="btn bg-emerald-200/80" value="close">Close</button>
+      </div>
+      <div id="storageNote" class="mt-2 text-xs muted"></div>
+    </form>
+  </dialog>
+
+  <script>
+  // ---------------------------
+  // Utility: seeded randomness for market
+  // ---------------------------
+  function xmur3(str){ let h = 1779033703 ^ str.length; for(let i=0;i<str.length;i++){ h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; } return function(){ h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return (h ^= h >>> 16) >>> 0; } }
+  function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } }
+  function seededRand(seedStr){ const s = xmur3(seedStr)(); return mulberry32(s); }
+
+  // ---------------------------
+  // Global state
+  // ---------------------------
+  const ui = {
+    authCard: document.getElementById('authCard'),
+    gameCard: document.getElementById('gameCard'),
+    captain: document.getElementById('uiCaptain'),
+    gold: document.getElementById('uiGold'),
+    port: document.getElementById('uiPort'),
+    food: document.getElementById('uiFood'),
+    water: document.getElementById('uiWater'),
+    crew: document.getElementById('uiCrew'),
+    cargoUsed: document.getElementById('uiCargoUsed'),
+    cargoCap: document.getElementById('uiCargoCap'),
+    travelStatus: document.getElementById('travelStatus'),
+    marketList: document.getElementById('marketList'),
+    fleetList: document.getElementById('fleetList'),
+    scoreboard: document.getElementById('scoreboard'),
+    portFleets: document.getElementById('portFleets'),
+    planSummary: document.getElementById('planSummary'),
+    statusBar: document.getElementById('statusBar'),
+    dstPort: document.getElementById('dstPort')
+  };
+
+  let data = { ports: [], goods: [], ships: [], crew: [] };
+
+  // Local player session (not secret)
+  let session = {
+    id: null,
+    pw: null,
+    local: null, // local copy of player record
+    sha: null,   // last sha from GitHub for concurrency
+    central: null // entire central state loaded
+  };
+
+  // Storage settings
+  const storage = {
+    get owner(){ return localStorage.getItem('neto_gh_owner') || '' },
+    set owner(v){ localStorage.setItem('neto_gh_owner', v) },
+    get repo(){ return localStorage.getItem('neto_gh_repo') || '' },
+    set repo(v){ localStorage.setItem('neto_gh_repo', v) },
+    get branch(){ return localStorage.getItem('neto_gh_branch') || 'main' },
+    set branch(v){ localStorage.setItem('neto_gh_branch', v) },
+    get path(){ return localStorage.getItem('neto_gh_path') || 'state/netocean.json' },
+    set path(v){ localStorage.setItem('neto_gh_path', v) },
+    get token(){ return localStorage.getItem('neto_gh_token') || '' },
+    set token(v){ localStorage.setItem('neto_gh_token', v) }
+  };
+
+  // ---------------------------
+  // Helpers
+  // ---------------------------
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const fmt = n => new Intl.NumberFormat().format(n);
+  const nowIso = () => new Date().toISOString();
+
+  function pickStartPort(){
+    if (!data.ports.length) return 'Lisbon';
+    // Favor Iberia/N. Europe if present
+    const fav = data.ports.find(p => p.name === 'Lisbon') || data.ports[0];
+    return fav.name;
+  }
+
+  function shipByName(name){ return data.ships.find(s => s.name === name); }
+
+  function fleetCargoCap(fleet){
+    return fleet.reduce((sum, s) => sum + (shipByName(s.type)?.cargoCapacity || 0), 0);
+  }
+  function fleetCargoUsed(fleet){
+    return fleet.reduce((sum, s) => {
+      const goodsQty = Object.values(s.cargo || {}).reduce((a,b) => a + b, 0);
+      const supplies = (s.supplies?.food || 0) + (s.supplies?.water || 0);
+      return sum + goodsQty + supplies;
+    }, 0);
+  }
+  function fleetCrewTotal(fleet){
+    return fleet.reduce((sum, s) => sum + (s.crew || 0), 0);
+  }
+  function fleetSpeed(fleet){
+    // Fleet speed is the min of ship speeds
+    if (!fleet.length) return 1;
+    return Math.min(...fleet.map(s => shipByName(s.type)?.speed || 1));
+  }
+
+  // Region distance model (fallback without coordinates)
+  const regionGroups = {
+    'N. Europe': ['N. Europe','Iberia','Mediterranean'],
+    'Iberia': ['N. Europe','Iberia','Mediterranean','W. Africa'],
+    'Mediterranean': ['N. Europe','Iberia','Mediterranean','Ottoman'],
+    'Ottoman': ['Mediterranean','Ottoman','Arabia','Africa'],
+    'Arabia': ['Ottoman','Arabia','India','Africa'],
+    'India': ['Arabia','India','S. Asia'],
+    'S. Asia': ['India','S. Asia','E. Asia'],
+    'E. Asia': ['S. Asia','E. Asia'],
+    'W. Africa': ['Iberia','W. Africa','Africa','S. America'],
+    'Africa': ['W. Africa','Africa','E. Africa','Arabia'],
+    'E. Africa': ['Africa','E. Africa','Arabia','India'],
+    'New World': ['New World','C. America','S. America'],
+    'C. America': ['New World','C. America','S. America'],
+    'S. America': ['C. America','S. America','W. Africa'],
+    'Australia': ['S. Asia','Australia','E. Asia']
+  };
+  function portByName(name){ return data.ports.find(p => p.name === name); }
+  function regionDistance(a,b){
+    if (a === b) return 1;
+    const rA = portByName(a)?.region || 'N. Europe';
+    const rB = portByName(b)?.region || 'N. Europe';
+    if (rA === rB) return 1;
+    const adj = regionGroups[rA] || [];
+    if (adj.includes(rB)) return 2; // adjacent regions
+    return 3; // far
+  }
+
+  // Travel time (seconds) and supply usage estimate
+  function planVoyage(fleet, fromPort, toPort){
+    const distTier = regionDistance(fromPort, toPort); // 1,2,3
+    const baseSeconds = [0, 90, 180, 360][distTier]; // 90s short, 180s mid, 360s long
+    const speed = Math.max(1, fleetSpeed(fleet));
+    const load = fleetCargoUsed(fleet);
+    const cap = Math.max(1, fleetCargoCap(fleet));
+    const loadFactor = 0.8 + 0.6 * (load / cap); // 0.8x (empty) .. 1.4x (full)
+    const seconds = Math.ceil((baseSeconds * loadFactor) / (speed / 6)); // normalize speeds around 6
+
+    const crew = fleetCrewTotal(fleet);
+    // Assume 1 food + 1 water per crew per 60s of travel
+    const foodNeeded = Math.ceil(crew * (seconds / 60));
+    const waterNeeded = Math.ceil(crew * (seconds / 60));
+
+    return { seconds, foodNeeded, waterNeeded, distTier, speed, load, cap };
+  }
+
+  // Market pricing (deterministic per day & port)
+  function priceFor(portName, good){
+    const base = good.basePrice || 10;
+    const day = new Date().toISOString().slice(0,10);
+    const rng = seededRand(`${day}|${portName}|${good.name}`);
+    const jitter = 0.8 + rng() * 0.6; // 0.8..1.4
+    // crude specialty: cheaper in India for spices, E. Asia for Silk/Porcelain, New World for Gold/Silver
+    const port = portByName(portName);
+    let spec = 1.0;
+    if (port){
+      if (port.region === 'India' && good.category === 'Spice') spec = 0.7;
+      if (port.region === 'E. Asia' && (good.name.includes('Silk') || good.name==='Porcelain')) spec = 0.7;
+      if ((port.region === 'New World' || port.region==='S. America') && (good.name==='Gold' || good.name==='Silver')) spec = 0.75;
+    }
+    return Math.max(1, Math.round(base * jitter * spec));
+  }
+
+  // ---------------------------
+  // Central state shape & merge
+  // ---------------------------
+  function emptyCentral(){
+    return { version:1, updatedAt: nowIso(), users: {}, history: [], bots: {} };
+  }
+  function ensureUser(central, id, pw){
+    central.users ||= {};
+    if (!central.users[id]){
+      central.users[id] = {
+        password: pw,
+        gold: 2000,
+        port: pickStartPort(),
+        fleet: [ { id: `S-${Math.random().toString(36).slice(2,7)}`, name: 'Pioneer', type: data.ships[0]?.name || 'Caravela Latina', cargo:{}, supplies:{food:100,water:100}, crew: 10, status: { state:'in-port' } } ],
+        lastSeen: nowIso(),
+        score: 0
+      };
+    }
+    return central;
+  }
+  function computeScore(u){
+    const ships = u.fleet?.length || 0;
+    const gold = u.gold || 0;
+    return Math.round(ships * 5 + gold / 1000);
+  }
+
+  function markArrivals(u){
+    // For each ship: if traveling and eta passed, arrive and consume supplies
+    const now = Date.now();
+    (u.fleet||[]).forEach(s => {
+      if (s.status?.state === 'at-sea' && s.status.eta){
+        const depart = s.status.departAt || now;
+        const until = Math.min(now, s.status.eta);
+        const crew = s.crew || 0;
+        const elapsedSec = Math.max(0, Math.floor((until - depart)/1000));
+        const foodUse = Math.ceil(crew * (elapsedSec/60));
+        const waterUse = Math.ceil(crew * (elapsedSec/60));
+        s.supplies.food = Math.max(0, (s.supplies.food||0) - foodUse);
+        s.supplies.water = Math.max(0, (s.supplies.water||0) - waterUse);
+        s.status.departAt = now; // shift baseline so repeated calls don’t double-consume
+        if (now >= s.status.eta){
+          s.status = { state:'in-port' };
+          u.port = s.status.to || u.port; // keep fleet’s nominal port
+          // optional: small spoilage for food cargo
+        }
+      }
+    });
+  }
+
+  // ---------------------------
+  // GitHub Contents API
+  // ---------------------------
+  function ghHeaders(){
+    const h = { 'Accept': 'application/vnd.github+json' };
+    if (storage.token) h['Authorization'] = `Bearer ${storage.token}`;
+    return h;
+  }
+  async function ghLoad(){
+    const url = `https://api.github.com/repos/${storage.owner}/${storage.repo}/contents/${storage.path}?ref=${encodeURIComponent(storage.branch)}`;
+    const res = await fetch(url, { headers: ghHeaders() });
+    if (res.status === 404){ return { central: emptyCentral(), sha: null }; }
+    if (!res.ok){ throw new Error(`Load failed: ${res.status}`); }
+    const j = await res.json();
+    const content = atob(j.content.replace(/\n/g,''));
+    const central = JSON.parse(content || '{}');
+    return { central, sha: j.sha };
+  }
+  async function ghSave(central, sha, message){
+    const url = `https://api.github.com/repos/${storage.owner}/${storage.repo}/contents/${storage.path}`;
+    const body = {
+      message: message || `netocean save ${session.id}`,
+      branch: storage.branch,
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(central,null,2))))
+    };
+    if (sha) body.sha = sha;
+    const res = await fetch(url, { method:'PUT', headers: { ...ghHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok){ throw new Error(`Save failed: ${res.status}`); }
+    const j = await res.json();
+    return { sha: j.content.sha };
+  }
+
+  // Merge strategy: take server, update/insert our user record; update updatedAt, recompute scores; append tiny history
+  function mergeAndUpdate(serverCentral){
+    const c = serverCentral || emptyCentral();
+    ensureUser(c, session.id, session.pw);
+    // Bring local changes over our user
+    c.users[session.id] = session.local;
+    c.users[session.id].lastSeen = nowIso();
+    // Recompute scores & clean
+    for (const [id,u] of Object.entries(c.users)){
+      markArrivals(u);
+      u.score = computeScore(u);
+    }
+    c.updatedAt = nowIso();
+    return c;
+  }
+
+  // ---------------------------
+  // UI wiring
+  // ---------------------------
+  function showStatus(msg){ ui.statusBar.textContent = msg; }
+
+  function refreshUI(){
+    const u = session.local; if (!u) return;
+    ui.captain.textContent = session.id;
+    ui.gold.textContent = fmt(u.gold||0);
+    ui.port.textContent = u.port || '—';
+
+    // Aggregate fleet supplies/capacity for quick view (use first ship as main for simplicity)
+    const cap = fleetCargoCap(u.fleet||[]);
+    const used = fleetCargoUsed(u.fleet||[]);
+    ui.cargoCap.textContent = fmt(cap);
+    ui.cargoUsed.textContent = fmt(used);
+
+    // Show supplies & crew summed
+    const food = (u.fleet||[]).reduce((a,s)=>a+(s.supplies?.food||0),0);
+    const water = (u.fleet||[]).reduce((a,s)=>a+(s.supplies?.water||0),0);
+    const crew = fleetCrewTotal(u.fleet||[]);
+    ui.food.textContent = fmt(food); ui.water.textContent = fmt(water); ui.crew.textContent = fmt(crew);
+
+    // Travel status
+    const traveling = (u.fleet||[]).some(s => s.status?.state==='at-sea');
+    if (traveling){
+      const soonest = (u.fleet||[]).filter(s => s.status?.state==='at-sea' && s.status.eta).reduce((m,s)=> Math.min(m, s.status.eta), Infinity);
+      const secs = Math.max(0, Math.ceil((soonest - Date.now())/1000));
+      ui.travelStatus.textContent = secs>0 ? `At sea… ETA ${secs}s` : `Approaching port…`;
+    } else {
+      ui.travelStatus.textContent = 'In port';
+    }
+
+    // Market list
+    renderMarket();
+    // Fleet list
+    renderFleet();
+  }
+
+  function renderMarket(){
+    const u = session.local; if (!u) return;
+    const port = u.port;
+    ui.marketList.innerHTML = '';
+    (data.goods||[]).slice(0, 16).forEach(g => { // show first 16 to keep UI compact
+      const price = priceFor(port, g);
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between rounded-xl border px-3 py-2 bg-white/60 dark:bg-zinc-800/60';
+      row.innerHTML = `
+        <div>
+          <div class="font-medium">${g.name}</div>
+          <div class="muted text-xs">${g.category}</div>
+        </div>
+        <div class="text-right">
+          <div class="mono">${fmt(price)}g</div>
+          <div class="mt-1 flex gap-1 justify-end">
+            <button class="btn bg-emerald-200/80 text-xs" data-act="buy" data-good="${g.name}" data-price="${price}">Buy</button>
+            <button class="btn bg-rose-200/80 text-xs" data-act="sell" data-good="${g.name}" data-price="${price}">Sell</button>
+          </div>
+        </div>`;
+      ui.marketList.appendChild(row);
+    });
+  }
+
+  function renderFleet(){
+    const u = session.local; if (!u) return;
+    ui.fleetList.innerHTML = '';
+    (u.fleet||[]).forEach(s => {
+      const spec = shipByName(s.type) || { cargoCapacity: 0, crewCapacity: {min:1,max:100}, speed:6 };
+      const cargoQty = Object.values(s.cargo||{}).reduce((a,b)=>a+b,0);
+      const supplies = (s.supplies?.food||0) + (s.supplies?.water||0);
+      const used = cargoQty + supplies;
+      const row = document.createElement('div');
+      row.className = 'rounded-xl border p-3 bg-white/60 dark:bg-zinc-800/60';
+      row.innerHTML = `
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="font-medium">${s.name} <span class="muted">(${s.type})</span></div>
+            <div class="text-xs muted">Crew ${s.crew} · Speed ${spec.speed} · Cargo ${used}/${spec.cargoCapacity}</div>
+            <div class="text-xs mt-1">Status: ${s.status?.state==='at-sea' ? 'At Sea' : 'In Port'}</div>
+          </div>
+          <div class="text-right">
+            <button class="btn bg-rose-200/80 text-xs" data-act="disband" data-sid="${s.id}">Sell Ship</button>
+          </div>
+        </div>`;
+      ui.fleetList.appendChild(row);
+    });
+  }
+
+  // Scoreboard & fleets present
+  function renderScoreboard(){
+    const c = session.central; if (!c) return;
+    const items = [];
+    for (const [id,u] of Object.entries(c.users||{})){
+      items.push({ id, ships: u.fleet?.length||0, gold: u.gold||0, score: computeScore(u) });
+    }
+    items.sort((a,b)=> b.score - a.score);
+    ui.scoreboard.innerHTML = items.map(it => `<div class="flex justify-between border-b py-1">
+      <div>${it.id}</div>
+      <div class="mono">ships ${it.ships} · ${fmt(it.gold)}g · score ${it.score}</div>
+    </div>`).join('');
+  }
+  function renderPortFleets(){
+    const c = session.central; if (!c) return;
+    const here = session.local?.port;
+    const list = [];
+    for (const [id,u] of Object.entries(c.users||{})){
+      if (id === session.id) continue;
+      const traveling = (u.fleet||[]).some(s => s.status?.state==='at-sea');
+      if (!traveling && u.port === here){ list.push({ id, ships: u.fleet?.length||0, crew: fleetCrewTotal(u.fleet||[]) }); }
+    }
+    ui.portFleets.innerHTML = list.length ? list.map(it => `
+      <div class="flex items-center justify-between border-b py-1">
+        <div>${it.id} <span class="muted">(${it.ships} ships)</span></div>
+        <div class="flex gap-1">
+          <button class="btn bg-rose-200/80 text-xs" data-act="attack" data-target="${it.id}">Attack</button>
+        </div>
+      </div>`).join('') : '<div class="muted">No other fleets here.</div>';
+  }
+
+  // ---------------------------
+  // Actions
+  // ---------------------------
+  function requireLogin(){ if (!session.id){ throw new Error('Login first'); } }
+
+  function loginOrRegister(kind){
+    const id = document.getElementById('authId').value.trim();
+    const pw = document.getElementById('authPw').value;
+    if (!id || !pw){ document.getElementById('authNote').textContent = 'Enter id & password'; return; }
+    session.id = id; session.pw = pw;
+    // Create local skeleton — actual central verification happens on Refresh/Save
+    session.local = {
+      password: pw,
+      gold: 2000,
+      port: pickStartPort(),
+      fleet: [ { id: `S-${Math.random().toString(36).slice(2,7)}`, name: 'Pioneer', type: data.ships[0]?.name || 'Caravela Latina', cargo:{}, supplies:{food:100,water:100}, crew: 10, status: { state:'in-port' } } ],
+      lastSeen: nowIso(),
+      score: 0
+    };
+    ui.authCard.classList.add('hidden');
+    ui.gameCard.classList.remove('hidden');
+    refreshUI();
+  }
+
+  async function doRefresh(){
+    try{
+      if (!storage.owner || !storage.repo){ showStatus('Set Storage to load central state.'); return; }
+      showStatus('Loading central state…');
+      const { central, sha } = await ghLoad();
+      session.central = central; session.sha = sha;
+      if (session.id){
+        ensureUser(central, session.id, session.pw);
+        // If server has our user, adopt it (password check)
+        const remote = central.users[session.id];
+        if (remote && remote.password === session.pw){ session.local = JSON.parse(JSON.stringify(remote)); }
+        else if (remote && remote.password !== session.pw){ alert('Password mismatch with central file.'); }
+      }
+      // Populate ports dropdown
+      ui.dstPort.innerHTML = data.ports.map(p => `<option>${p.name}</option>`).join('');
+      renderScoreboard();
+      renderPortFleets();
+      refreshUI();
+      showStatus('Central state loaded.');
+    }catch(err){ console.error(err); alert(err.message); showStatus('Refresh failed.'); }
+  }
+
+  async function doSave(){
+    try{
+      requireLogin();
+      if (!storage.owner || !storage.repo){ alert('Set Storage first.'); return; }
+      showStatus('Saving…');
+      const fresh = await ghLoad(); // optimistic, but take latest
+      session.central = fresh.central; session.sha = fresh.sha;
+      // Update local arrivals before save
+      markArrivals(session.local);
+      // Merge our record and update scores
+      const merged = mergeAndUpdate(session.central);
+      const res = await ghSave(merged, fresh.sha, `save(${session.id})`);
+      session.sha = res.sha; session.central = merged;
+      renderScoreboard();
+      renderPortFleets();
+      refreshUI();
+      showStatus('Saved.');
+    }catch(err){ console.error(err); alert(err.message); showStatus('Save failed.'); }
+  }
+
+  function buySupply(kind){
+    const u = session.local; if (!u) return;
+    const ship = u.fleet[0]; if (!ship) return;
+    const price = 1; // supplies cost 1g each for simplicity
+    if (u.gold < price){ alert('Not enough gold'); return; }
+    // Capacity check
+    const cap = shipByName(ship.type)?.cargoCapacity || 0;
+    const used = Object.values(ship.cargo||{}).reduce((a,b)=>a+b,0) + (ship.supplies.food||0) + (ship.supplies.water||0);
+    if (used + 1 > cap){ alert('No cargo space'); return; }
+    u.gold -= price; ship.supplies[kind] = (ship.supplies[kind]||0) + 1;
+    refreshUI();
+  }
+
+  function hireCrew(){
+    const u = session.local; const ship = u?.fleet?.[0]; if (!ship) return;
+    // Minimal salary/fee
+    const fee = 10; if ((u.gold||0) < fee){ alert('Not enough gold'); return; }
+    const max = shipByName(ship.type)?.crewCapacity?.max || 999;
+    if (ship.crew + 1 > max){ alert('Crew capacity reached'); return; }
+    u.gold -= fee; ship.crew += 1; refreshUI();
+  }
+
+  function buyShip(){
+    const u = session.local; if (!u) return;
+    // Pick an affordable ship (first few cheaper)
+    const shop = data.ships.slice(0,6);
+    const name = prompt('Buy which ship?\n' + shop.map(s => `${s.name} — ${fmt(s.price)}g`).join('\n'));
+    const spec = data.ships.find(s => s.name.toLowerCase() === (name||'').toLowerCase());
+    if (!spec){ alert('Not found.'); return; }
+    if ((u.gold||0) < spec.price){ alert('Not enough gold'); return; }
+    u.gold -= spec.price;
+    u.fleet.push({ id:`S-${Math.random().toString(36).slice(2,7)}`, name: spec.name, type: spec.name, cargo:{}, supplies:{food:50,water:50}, crew: spec.crewCapacity?.min || 5, status:{ state:'in-port' } });
+    refreshUI();
+  }
+
+  function sellShip(sid){
+    const u = session.local; if (!u) return;
+    const idx = u.fleet.findIndex(s => s.id === sid);
+    if (idx < 0) return;
+    const spec = shipByName(u.fleet[idx].type);
+    const refund = Math.round((spec?.price || 0) * 0.6);
+    if (confirm(`Sell ${u.fleet[idx].name} for ${fmt(refund)}g?`)){
+      u.fleet.splice(idx,1);
+      u.gold += refund; refreshUI();
+    }
+  }
+
+  function buySellGood(act, goodName, price){
+    const u = session.local; const ship = u?.fleet?.[0]; if (!ship) return;
+    const qtyStr = prompt(`${act==='buy'?'Buy':'Sell'} how many ${goodName}?`);
+    const qty = Math.max(0, parseInt(qtyStr||'0',10));
+    if (!qty) return;
+    if (act==='buy'){
+      const cost = price * qty; if ((u.gold||0) < cost){ alert('Not enough gold'); return; }
+      // capacity check
+      const cap = shipByName(ship.type)?.cargoCapacity || 0;
+      const used = Object.values(ship.cargo||{}).reduce((a,b)=>a+b,0) + (ship.supplies.food||0) + (ship.supplies.water||0);
+      if (used + qty > cap){ alert('No cargo space'); return; }
+      ship.cargo[goodName] = (ship.cargo[goodName]||0) + qty; u.gold -= cost;
+    } else {
+      const have = ship.cargo[goodName]||0; if (qty > have){ alert('Not enough cargo'); return; }
+      ship.cargo[goodName] = have - qty; if (ship.cargo[goodName]===0) delete ship.cargo[goodName];
+      u.gold += price * qty;
+    }
+    refreshUI();
+  }
+
+  function planAndShow(){
+    const u = session.local; const ship = u?.fleet?.[0]; if (!ship) return;
+    const dst = ui.dstPort.value; if (!dst || dst===u.port){ ui.planSummary.textContent = 'Pick another port.'; return; }
+    const plan = planVoyage(u.fleet, u.port, dst);
+    ui.planSummary.textContent = `ETA ~${plan.seconds}s · need ≈ ${fmt(plan.foodNeeded)} food / ${fmt(plan.waterNeeded)} water (crew ${fleetCrewTotal(u.fleet)})`;
+    ui.btnDepart?.removeAttribute?.('disabled');
+    document.getElementById('btnDepart').disabled = false;
+    document.getElementById('btnDepart').dataset.dst = dst;
+    document.getElementById('btnDepart').dataset.plan = JSON.stringify(plan);
+  }
+
+  function departNow(){
+    const u = session.local; const ship = u?.fleet?.[0]; if (!ship) return;
+    const dst = document.getElementById('btnDepart').dataset.dst;
+    const plan = JSON.parse(document.getElementById('btnDepart').dataset.plan || '{}');
+    // Check supplies
+    const haveFood = (ship.supplies?.food||0);
+    const haveWater = (ship.supplies?.water||0);
+    if (haveFood < plan.foodNeeded || haveWater < plan.waterNeeded){
+      if (!confirm('Supplies may be insufficient for the trip. Depart anyway?')) return;
+    }
+    const departAt = Date.now();
+    ship.status = { state:'at-sea', from: u.port, to: dst, departAt, eta: departAt + plan.seconds*1000 };
+    // No immediate consumption; it accrues with time and is applied on refresh/save
+    refreshUI();
+  }
+
+  function attackTarget(targetId){
+    const c = session.central; const me = session.local; if (!c || !me) return;
+    const them = c.users?.[targetId]; if (!them){ alert('Target not found. Refresh.'); return; }
+    if (them.port !== me.port){ alert('Not in same port.'); return; }
+    const myPower = fleetCrewTotal(me.fleet) + Object.values(me.fleet[0]?.cargo||{}).reduce((a,b)=> a + (a&&b && 0), 0);
+    const thPower = fleetCrewTotal(them.fleet);
+    const rng = Math.random();
+    const myScore = myPower * (0.8 + rng*0.4);
+    const thScore = thPower * (0.8 + (1-rng)*0.4);
+    let msg = '';
+    if (myScore >= thScore){
+      const loot = Math.min( Math.round((them.gold||0) * 0.2), 2000 );
+      me.gold += loot; them.gold = Math.max(0, (them.gold||0) - loot);
+      msg = `Won vs ${targetId}, looted ${fmt(loot)}g`;
+    } else {
+      const loss = Math.min( Math.round((me.gold||0) * 0.15), 1500 );
+      me.gold = Math.max(0, (me.gold||0) - loss); them.gold += Math.round(loss/2);
+      msg = `Lost vs ${targetId}, lost ${fmt(loss)}g`;
+    }
+    alert(msg + '\nSave to persist the outcome.');
+    refreshUI();
+  }
+
+  // ---------------------------
+  // Events
+  // ---------------------------
+  document.getElementById('btnLogin').addEventListener('click', ()=> loginOrRegister('login'));
+  document.getElementById('btnRegister').addEventListener('click', ()=> loginOrRegister('register'));
+
+  document.getElementById('btnStorage').addEventListener('click', ()=>{
+    document.getElementById('ghOwner').value = storage.owner;
+    document.getElementById('ghRepo').value = storage.repo;
+    document.getElementById('ghBranch').value = storage.branch;
+    document.getElementById('ghPath').value = storage.path;
+    document.getElementById('ghToken').value = storage.token;
+    document.getElementById('storageDlg').showModal();
+  });
+  document.getElementById('btnStorageLoad').addEventListener('click', async (e)=>{
+    e.preventDefault();
+    storage.owner = document.getElementById('ghOwner').value.trim();
+    storage.repo = document.getElementById('ghRepo').value.trim();
+    storage.branch = document.getElementById('ghBranch').value.trim();
+    storage.path = document.getElementById('ghPath').value.trim();
+    storage.token = document.getElementById('ghToken').value.trim();
+    document.getElementById('storageNote').textContent = 'Testing…';
+    try{ await doRefresh(); document.getElementById('storageNote').textContent = 'Loaded ✓'; }
+    catch{ document.getElementById('storageNote').textContent = 'Failed to load.'; }
+  });
+
+  document.getElementById('btnRefresh').addEventListener('click', doRefresh);
+  document.getElementById('btnSave').addEventListener('click', doSave);
+
+  document.getElementById('btnBuyFood').addEventListener('click', ()=> buySupply('food'));
+  document.getElementById('btnBuyWater').addEventListener('click', ()=> buySupply('water'));
+  document.getElementById('btnHireCrew').addEventListener('click', hireCrew);
+
+  document.getElementById('btnBuyShip').addEventListener('click', buyShip);
+
+  ui.marketList.addEventListener('click', (e)=>{
+    const b = e.target.closest('button'); if (!b) return;
+    const act = b.dataset.act; if (act !== 'buy' && act !== 'sell') return;
+    buySellGood(act, b.dataset.good, parseInt(b.dataset.price,10));
+  });
+
+  ui.fleetList.addEventListener('click', (e)=>{
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.act === 'disband'){ sellShip(b.dataset.sid); }
+  });
+
+  document.getElementById('btnPlan').addEventListener('click', planAndShow);
+  document.getElementById('btnDepart').addEventListener('click', departNow);
+
+  document.getElementById('btnReloadScore').addEventListener('click', renderScoreboard);
+  document.getElementById('btnAttackRefresh').addEventListener('click', renderPortFleets);
+  document.getElementById('portFleets').addEventListener('click', (e)=>{
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.act === 'attack'){ attackTarget(b.dataset.target); }
+  });
+
+  document.getElementById('dstPort').addEventListener('change', ()=>{ ui.planSummary.textContent=''; document.getElementById('btnDepart').disabled = true; });
+
+  // ---------------------------
+  // Boot: load local data files
+  // ---------------------------
+  async function boot(){
+    try{
+      const [p,g,s,c] = await Promise.all([
+        fetch('assets/ports.json').then(r=>r.json()),
+        fetch('assets/goods.json').then(r=>r.json()),
+        fetch('assets/ships.json').then(r=>r.json()),
+        fetch('assets/crew.json').then(r=>r.json())
+      ]);
+      data.ports=p; data.goods=g; data.ships=s; data.crew=c;
+      // Fill port dropdown
+      ui.dstPort.innerHTML = data.ports.map(p => `<option>${p.name}</option>`).join('');
+      showStatus('Data loaded. Login or open Storage to load shared state.');
+    }catch(err){ console.error(err); alert('Failed to load assets/*.json — make sure they exist.'); }
+  }
+  boot();
+  </script>
+</body>
+</html>

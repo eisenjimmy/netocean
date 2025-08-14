@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Balsa",
+    "type": "Deep",
+    "cargoCapacity": 30,
+    "crewCapacity": { "min": 5, "max": 20 },
+    "speed": 8,
+    "price": 1200
+  },
+  {
+    "name": "Hansa Cog",
+    "type": "Shallow",
+    "cargoCapacity": 35,
+    "crewCapacity": { "min": 5, "max": 20 },
+    "speed": 7,
+    "price": 1300
+  },
+  {
+    "name": "Light Galley",
+    "type": "Shallow",
+    "cargoCapacity": 90,
+    "crewCapacity": { "min": 5, "max": 30 },
+    "speed": 6,
+    "price": 1400
+  },
+  {
+    "name": "Tallette",
+    "type": "Shallow",
+    "cargoCapacity": 55,
+    "crewCapacity": { "min": 5, "max": 20 },
+    "speed": 7,
+    "price": 1400
+  },
+  {
+    "name": "Kansen",
+    "type": "Shallow",
+    "cargoCapacity": 175,
+    "crewCapacity": { "min": 10, "max": 60 },
+    "speed": 6,
+    "price": 2000
+  },
+  {
+    "name": "Caravela Latina",
+    "type": "Deep",
+    "cargoCapacity": 80,
+    "crewCapacity": { "min": 10, "max": 40 },
+    "speed": 8,
+    "price": 2400
+  },
+  {
+    "name": "Caravela Redonda",
+    "type": "Deep",
+    "cargoCapacity": 80,
+    "crewCapacity": { "min": 10, "max": 40 },
+    "speed": 7,
+    "price": 2400
+  },
+  {
+    "name": "Dhow",
+    "type": "Deep",
+    "cargoCapacity": 50,
+    "crewCapacity": { "min": 5, "max": 20 },
+    "speed": 7,
+    "price": 1800
+  },
+  {
+    "name": "Junk",
+    "type": "Deep",
+    "cargoCapacity": 395,
+    "crewCapacity": { "min": 25, "max": 100 },
+    "speed": 5,
+    "price": 16000
+  },
+  {
+    "name": "Brigantine",
+    "type": "Deep",
+    "cargoCapacity": 120,
+    "crewCapacity": { "min": 15, "max": 60 },
+    "speed": 7,
+    "price": 10000
+  },
+  {
+    "name": "Atakabune",
+    "type": "Shallow",
+    "cargoCapacity": 310,
+    "crewCapacity": { "min": 20, "max": 200 },
+    "speed": 5,
+    "price": 14500
+  },
+  {
+    "name": "Flemish Galleon",
+    "type": "Shallow",
+    "cargoCapacity": 290,
+    "crewCapacity": { "min": 40, "max": 200 },
+    "speed": 5,
+    "price": 34000
+  },
+  {
+    "name": "Nao",
+    "type": "Deep",
+    "cargoCapacity": 340,
+    "crewCapacity": { "min": 25, "max": 120 },
+    "speed": 6,
+    "price": 30000
+  },
+  {
+    "name": "Xebec",
+    "type": "Deep",
+    "cargoCapacity": 450,
+    "crewCapacity": { "min": 25, "max": 300 },
+    "speed": 6,
+    "price": 44000
+  },
+  {
+    "name": "Venetian Galeass",
+    "type": "Shallow",
+    "cargoCapacity": 580,
+    "crewCapacity": { "min": 60, "max": 400 },
+    "speed": 4,
+    "price": 64000
+  },
+  {
+    "name": "Pinnace",
+    "type": "Deep",
+    "cargoCapacity": 95,
+    "crewCapacity": { "min": 5, "max": 60 },
+    "speed": 8,
+    "price": 6000
+  },
+  {
+    "name": "Carrack",
+    "type": "Deep",
+    "cargoCapacity": 470,
+    "crewCapacity": { "min": 30, "max": 160 },
+    "speed": 5,
+    "price": 40000
+  },
+  {
+    "name": "La Reale",
+    "type": "Deep",
+    "cargoCapacity": 260,
+    "crewCapacity": { "min": 30, "max": 250 },
+    "speed": 7,
+    "price": 40000
+  },
+  {
+    "name": "Buss",
+    "type": "Shallow",
+    "cargoCapacity": 320,
+    "crewCapacity": { "min": 50, "max": 200 },
+    "speed": 4,
+    "price": 20000
+  },
+  {
+    "name": "Galleon",
+    "type": "Deep",
+    "cargoCapacity": 550,
+    "crewCapacity": { "min": 45, "max": 200 },
+    "speed": 4,
+    "price": 60000
+  },
+  {
+    "name": "Sloop",
+    "type": "Deep",
+    "cargoCapacity": 195,
+    "crewCapacity": { "min": 5, "max": 60 },
+    "speed": 9,
+    "price": 16000
+  },
+  {
+    "name": "Tekkousen",
+    "type": "Deep",
+    "cargoCapacity": 660,
+    "crewCapacity": { "min": 45, "max": 300 },
+    "speed": 4,
+    "price": 140000
+  },
+  {
+    "name": "Frigate",
+    "type": "Deep",
+    "cargoCapacity": 400,
+    "crewCapacity": { "min": 20, "max": 300 },
+    "speed": 5,
+    "price": 224000
+  },
+  {
+    "name": "Barge",
+    "type": "Deep",
+    "cargoCapacity": 610,
+    "crewCapacity": { "min": 40, "max": 450 },
+    "speed": 4,
+    "price": 300000
+  },
+  {
+    "name": "Full-Rigged Ship",
+    "type": "Deep",
+    "cargoCapacity": 750,
+    "crewCapacity": { "min": 45, "max": 500 },
+    "speed": 4,
+    "price": 320000
+  }
+]

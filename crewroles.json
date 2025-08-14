@@ -1,0 +1,10 @@
+[
+  { "role": "Captain", "description": "Commands a ship or the fleet. Required for each ship (usually the player or an officer).", "salary": 50 },
+  { "role": "Navigator", "description": "Plots the course and steers. Improves travel speed and reduces chance of getting lost.", "salary": 40 },
+  { "role": "Gunner", "description": "Handles the cannons during battle. Improves combat damage and accuracy.", "salary": 30 },
+  { "role": "Lookout", "description": "Scans the horizon for land, ships, or hazards. May warn of pirates or find nearby ports.", "salary": 20 },
+  { "role": "Cook", "description": "Prepares meals and rations. A good cook reduces food consumption and keeps crew morale high.", "salary": 15 },
+  { "role": "Surgeon", "description": "Tends to sick or injured crew. Helps prevent deaths from scurvy or battle, especially on long voyages.", "salary": 25 },
+  { "role": "Carpenter", "description": "Repairs ship damage during voyages. Slows down durability loss of ships and fixes leakages in storms.", "salary": 20 },
+  { "role": "Treasurer", "description": "Keeps the books. Helps find best market prices (like the Bookkeeper in UW2:contentReference[oaicite:15]{index=15}) and possibly manages finances.", "salary": 30 }
+]

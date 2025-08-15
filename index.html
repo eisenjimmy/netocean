@@ -7,11 +7,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark" />
   <style>
-    /* Mobile-first tweaks */
+    /* Tailwind CDN does not process @apply; use plain CSS for helpers */
     html, body { height: 100%; }
-    .btn { @apply px-3 py-2 rounded-xl shadow text-sm font-medium; }
-    .card { @apply rounded-2xl shadow p-4 bg-white/70 dark:bg-zinc-900/70 backdrop-blur; }
-    .muted { @apply text-zinc-500 dark:text-zinc-400; }
+    .btn { padding: 0.5rem 0.75rem; border-radius: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,.1); font-size: .875rem; font-weight: 500; }
+    .card { border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06); padding: 1rem; background: rgba(255,255,255,.7); backdrop-filter: blur(6px); }
+    .dark .card { background: rgba(24,24,27,.7); }
+    .muted { color: rgb(113 113 122); }
+    .dark .muted { color: rgb(161 161 170); }
     .mono { font-variant-numeric: tabular-nums; }
   </style>
 </head>
@@ -243,7 +245,6 @@
 
   function pickStartPort(){
     if (!data.ports.length) return 'Lisbon';
-    // Favor Iberia/N. Europe if present
     const fav = data.ports.find(p => p.name === 'Lisbon') || data.ports[0];
     return fav.name;
   }
@@ -264,7 +265,6 @@
     return fleet.reduce((sum, s) => sum + (s.crew || 0), 0);
   }
   function fleetSpeed(fleet){
-    // Fleet speed is the min of ship speeds
     if (!fleet.length) return 1;
     return Math.min(...fleet.map(s => shipByName(s.type)?.speed || 1));
   }
@@ -300,16 +300,15 @@
 
   // Travel time (seconds) and supply usage estimate
   function planVoyage(fleet, fromPort, toPort){
-    const distTier = regionDistance(fromPort, toPort); // 1,2,3
-    const baseSeconds = [0, 90, 180, 360][distTier]; // 90s short, 180s mid, 360s long
+    const distTier = regionDistance(fromPort, toPort);
+    const baseSeconds = [0, 90, 180, 360][distTier];
     const speed = Math.max(1, fleetSpeed(fleet));
     const load = fleetCargoUsed(fleet);
     const cap = Math.max(1, fleetCargoCap(fleet));
-    const loadFactor = 0.8 + 0.6 * (load / cap); // 0.8x (empty) .. 1.4x (full)
-    const seconds = Math.ceil((baseSeconds * loadFactor) / (speed / 6)); // normalize speeds around 6
+    const loadFactor = 0.8 + 0.6 * (load / cap);
+    const seconds = Math.ceil((baseSeconds * loadFactor) / (speed / 6));
 
     const crew = fleetCrewTotal(fleet);
-    // Assume 1 food + 1 water per crew per 60s of travel
     const foodNeeded = Math.ceil(crew * (seconds / 60));
     const waterNeeded = Math.ceil(crew * (seconds / 60));
 
@@ -321,8 +320,7 @@
     const base = good.basePrice || 10;
     const day = new Date().toISOString().slice(0,10);
     const rng = seededRand(`${day}|${portName}|${good.name}`);
-    const jitter = 0.8 + rng() * 0.6; // 0.8..1.4
-    // crude specialty: cheaper in India for spices, E. Asia for Silk/Porcelain, New World for Gold/Silver
+    const jitter = 0.8 + rng() * 0.6;
     const port = portByName(portName);
     let spec = 1.0;
     if (port){
@@ -360,7 +358,6 @@
   }
 
   function markArrivals(u){
-    // For each ship: if traveling and eta passed, arrive and consume supplies
     const now = Date.now();
     (u.fleet||[]).forEach(s => {
       if (s.status?.state === 'at-sea' && s.status.eta){
@@ -372,11 +369,11 @@
         const waterUse = Math.ceil(crew * (elapsedSec/60));
         s.supplies.food = Math.max(0, (s.supplies.food||0) - foodUse);
         s.supplies.water = Math.max(0, (s.supplies.water||0) - waterUse);
-        s.status.departAt = now; // shift baseline so repeated calls don’t double-consume
+        s.status.departAt = now;
         if (now >= s.status.eta){
+          const arrivedTo = s.status.to; // capture before overwrite
           s.status = { state:'in-port' };
-          u.port = s.status.to || u.port; // keep fleet’s nominal port
-          // optional: small spoilage for food cargo
+          if (arrivedTo) u.port = arrivedTo;
         }
       }
     });
@@ -396,7 +393,8 @@
     if (res.status === 404){ return { central: emptyCentral(), sha: null }; }
     if (!res.ok){ throw new Error(`Load failed: ${res.status}`); }
     const j = await res.json();
-    const content = atob(j.content.replace(/\n/g,''));
+    const content = atob(j.content.replace(/
+/g,''));
     const central = JSON.parse(content || '{}');
     return { central, sha: j.sha };
   }
@@ -409,19 +407,21 @@
     };
     if (sha) body.sha = sha;
     const res = await fetch(url, { method:'PUT', headers: { ...ghHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok){ throw new Error(`Save failed: ${res.status}`); }
+    if (!res.ok){
+      let txt = '';
+      try { txt = await res.text(); } catch {}
+      throw new Error(`Save failed: ${res.status}
+${txt}`);
+    }
     const j = await res.json();
     return { sha: j.content.sha };
   }
 
-  // Merge strategy: take server, update/insert our user record; update updatedAt, recompute scores; append tiny history
   function mergeAndUpdate(serverCentral){
     const c = serverCentral || emptyCentral();
     ensureUser(c, session.id, session.pw);
-    // Bring local changes over our user
     c.users[session.id] = session.local;
     c.users[session.id].lastSeen = nowIso();
-    // Recompute scores & clean
     for (const [id,u] of Object.entries(c.users)){
       markArrivals(u);
       u.score = computeScore(u);
@@ -441,19 +441,16 @@
     ui.gold.textContent = fmt(u.gold||0);
     ui.port.textContent = u.port || '—';
 
-    // Aggregate fleet supplies/capacity for quick view (use first ship as main for simplicity)
     const cap = fleetCargoCap(u.fleet||[]);
     const used = fleetCargoUsed(u.fleet||[]);
     ui.cargoCap.textContent = fmt(cap);
     ui.cargoUsed.textContent = fmt(used);
 
-    // Show supplies & crew summed
     const food = (u.fleet||[]).reduce((a,s)=>a+(s.supplies?.food||0),0);
     const water = (u.fleet||[]).reduce((a,s)=>a+(s.supplies?.water||0),0);
     const crew = fleetCrewTotal(u.fleet||[]);
     ui.food.textContent = fmt(food); ui.water.textContent = fmt(water); ui.crew.textContent = fmt(crew);
 
-    // Travel status
     const traveling = (u.fleet||[]).some(s => s.status?.state==='at-sea');
     if (traveling){
       const soonest = (u.fleet||[]).filter(s => s.status?.state==='at-sea' && s.status.eta).reduce((m,s)=> Math.min(m, s.status.eta), Infinity);
@@ -463,9 +460,7 @@
       ui.travelStatus.textContent = 'In port';
     }
 
-    // Market list
     renderMarket();
-    // Fleet list
     renderFleet();
   }
 
@@ -473,7 +468,7 @@
     const u = session.local; if (!u) return;
     const port = u.port;
     ui.marketList.innerHTML = '';
-    (data.goods||[]).slice(0, 16).forEach(g => { // show first 16 to keep UI compact
+    (data.goods||[]).slice(0, 16).forEach(g => {
       const price = priceFor(port, g);
       const row = document.createElement('div');
       row.className = 'flex items-center justify-between rounded-xl border px-3 py-2 bg-white/60 dark:bg-zinc-800/60';
@@ -518,7 +513,6 @@
     });
   }
 
-  // Scoreboard & fleets present
   function renderScoreboard(){
     const c = session.central; if (!c) return;
     const items = [];
@@ -554,23 +548,42 @@
   // ---------------------------
   function requireLogin(){ if (!session.id){ throw new Error('Login first'); } }
 
-  function loginOrRegister(kind){
+  // Enforce central-file auth: login must match central; register only if not present
+  async function loginOrRegister(kind){
     const id = document.getElementById('authId').value.trim();
     const pw = document.getElementById('authPw').value;
-    if (!id || !pw){ document.getElementById('authNote').textContent = 'Enter id & password'; return; }
-    session.id = id; session.pw = pw;
-    // Create local skeleton — actual central verification happens on Refresh/Save
-    session.local = {
-      password: pw,
-      gold: 2000,
-      port: pickStartPort(),
-      fleet: [ { id: `S-${Math.random().toString(36).slice(2,7)}`, name: 'Pioneer', type: data.ships[0]?.name || 'Caravela Latina', cargo:{}, supplies:{food:100,water:100}, crew: 10, status: { state:'in-port' } } ],
-      lastSeen: nowIso(),
-      score: 0
-    };
-    ui.authCard.classList.add('hidden');
-    ui.gameCard.classList.remove('hidden');
-    refreshUI();
+    const note = document.getElementById('authNote');
+    if (!id || !pw){ note.textContent = 'Enter id & password'; return; }
+    if (!storage.owner || !storage.repo){ note.textContent = 'Open Storage and configure GitHub first.'; return; }
+    try{
+      const { central, sha } = await ghLoad();
+      session.central = central; session.sha = sha;
+      const existing = central.users?.[id];
+
+      if (kind === 'login'){
+        if (!existing){ note.textContent = 'User not found in central file. Use Register.'; return; }
+        if (existing.password !== pw){ note.textContent = 'Password mismatch (central JSON).'; return; }
+        session.id = id; session.pw = pw;
+        session.local = JSON.parse(JSON.stringify(existing));
+      } else {
+        if (existing){ note.textContent = 'User already exists. Use Login.'; return; }
+        session.id = id; session.pw = pw;
+        session.local = {
+          password: pw,
+          gold: 2000,
+          port: pickStartPort(),
+          fleet: [ { id: `S-${Math.random().toString(36).slice(2,7)}`, name: 'Pioneer', type: data.ships[0]?.name || 'Caravela Latina', cargo:{}, supplies:{food:100,water:100}, crew: 10, status: { state:'in-port' } } ],
+          lastSeen: nowIso(),
+          score: 0
+        };
+      }
+      note.textContent = '';
+      ui.authCard.classList.add('hidden');
+      ui.gameCard.classList.remove('hidden');
+      renderScoreboard();
+      renderPortFleets();
+      refreshUI();
+    }catch(err){ note.textContent = 'Auth failed: ' + err.message; }
   }
 
   async function doRefresh(){
@@ -580,13 +593,10 @@
       const { central, sha } = await ghLoad();
       session.central = central; session.sha = sha;
       if (session.id){
-        ensureUser(central, session.id, session.pw);
-        // If server has our user, adopt it (password check)
         const remote = central.users[session.id];
         if (remote && remote.password === session.pw){ session.local = JSON.parse(JSON.stringify(remote)); }
         else if (remote && remote.password !== session.pw){ alert('Password mismatch with central file.'); }
       }
-      // Populate ports dropdown
       ui.dstPort.innerHTML = data.ports.map(p => `<option>${p.name}</option>`).join('');
       renderScoreboard();
       renderPortFleets();
@@ -600,11 +610,9 @@
       requireLogin();
       if (!storage.owner || !storage.repo){ alert('Set Storage first.'); return; }
       showStatus('Saving…');
-      const fresh = await ghLoad(); // optimistic, but take latest
+      const fresh = await ghLoad();
       session.central = fresh.central; session.sha = fresh.sha;
-      // Update local arrivals before save
       markArrivals(session.local);
-      // Merge our record and update scores
       const merged = mergeAndUpdate(session.central);
       const res = await ghSave(merged, fresh.sha, `save(${session.id})`);
       session.sha = res.sha; session.central = merged;
@@ -618,9 +626,8 @@
   function buySupply(kind){
     const u = session.local; if (!u) return;
     const ship = u.fleet[0]; if (!ship) return;
-    const price = 1; // supplies cost 1g each for simplicity
+    const price = 1;
     if (u.gold < price){ alert('Not enough gold'); return; }
-    // Capacity check
     const cap = shipByName(ship.type)?.cargoCapacity || 0;
     const used = Object.values(ship.cargo||{}).reduce((a,b)=>a+b,0) + (ship.supplies.food||0) + (ship.supplies.water||0);
     if (used + 1 > cap){ alert('No cargo space'); return; }
@@ -630,7 +637,6 @@
 
   function hireCrew(){
     const u = session.local; const ship = u?.fleet?.[0]; if (!ship) return;
-    // Minimal salary/fee
     const fee = 10; if ((u.gold||0) < fee){ alert('Not enough gold'); return; }
     const max = shipByName(ship.type)?.crewCapacity?.max || 999;
     if (ship.crew + 1 > max){ alert('Crew capacity reached'); return; }
@@ -639,9 +645,10 @@
 
   function buyShip(){
     const u = session.local; if (!u) return;
-    // Pick an affordable ship (first few cheaper)
     const shop = data.ships.slice(0,6);
-    const name = prompt('Buy which ship?\n' + shop.map(s => `${s.name} — ${fmt(s.price)}g`).join('\n'));
+    const name = prompt('Buy which ship?
+' + shop.map(s => `${s.name} — ${fmt(s.price)}g`).join('
+'));
     const spec = data.ships.find(s => s.name.toLowerCase() === (name||'').toLowerCase());
     if (!spec){ alert('Not found.'); return; }
     if ((u.gold||0) < spec.price){ alert('Not enough gold'); return; }
@@ -669,7 +676,6 @@
     if (!qty) return;
     if (act==='buy'){
       const cost = price * qty; if ((u.gold||0) < cost){ alert('Not enough gold'); return; }
-      // capacity check
       const cap = shipByName(ship.type)?.cargoCapacity || 0;
       const used = Object.values(ship.cargo||{}).reduce((a,b)=>a+b,0) + (ship.supplies.food||0) + (ship.supplies.water||0);
       if (used + qty > cap){ alert('No cargo space'); return; }
@@ -687,7 +693,6 @@
     const dst = ui.dstPort.value; if (!dst || dst===u.port){ ui.planSummary.textContent = 'Pick another port.'; return; }
     const plan = planVoyage(u.fleet, u.port, dst);
     ui.planSummary.textContent = `ETA ~${plan.seconds}s · need ≈ ${fmt(plan.foodNeeded)} food / ${fmt(plan.waterNeeded)} water (crew ${fleetCrewTotal(u.fleet)})`;
-    ui.btnDepart?.removeAttribute?.('disabled');
     document.getElementById('btnDepart').disabled = false;
     document.getElementById('btnDepart').dataset.dst = dst;
     document.getElementById('btnDepart').dataset.plan = JSON.stringify(plan);
@@ -697,7 +702,6 @@
     const u = session.local; const ship = u?.fleet?.[0]; if (!ship) return;
     const dst = document.getElementById('btnDepart').dataset.dst;
     const plan = JSON.parse(document.getElementById('btnDepart').dataset.plan || '{}');
-    // Check supplies
     const haveFood = (ship.supplies?.food||0);
     const haveWater = (ship.supplies?.water||0);
     if (haveFood < plan.foodNeeded || haveWater < plan.waterNeeded){
@@ -705,7 +709,6 @@
     }
     const departAt = Date.now();
     ship.status = { state:'at-sea', from: u.port, to: dst, departAt, eta: departAt + plan.seconds*1000 };
-    // No immediate consumption; it accrues with time and is applied on refresh/save
     refreshUI();
   }
 
@@ -713,7 +716,7 @@
     const c = session.central; const me = session.local; if (!c || !me) return;
     const them = c.users?.[targetId]; if (!them){ alert('Target not found. Refresh.'); return; }
     if (them.port !== me.port){ alert('Not in same port.'); return; }
-    const myPower = fleetCrewTotal(me.fleet) + Object.values(me.fleet[0]?.cargo||{}).reduce((a,b)=> a + (a&&b && 0), 0);
+    const myPower = fleetCrewTotal(me.fleet);
     const thPower = fleetCrewTotal(them.fleet);
     const rng = Math.random();
     const myScore = myPower * (0.8 + rng*0.4);
@@ -728,7 +731,8 @@
       me.gold = Math.max(0, (me.gold||0) - loss); them.gold += Math.round(loss/2);
       msg = `Lost vs ${targetId}, lost ${fmt(loss)}g`;
     }
-    alert(msg + '\nSave to persist the outcome.');
+    alert(msg + '
+Save to persist the outcome.');
     refreshUI();
   }
 
@@ -791,21 +795,35 @@
   document.getElementById('dstPort').addEventListener('change', ()=>{ ui.planSummary.textContent=''; document.getElementById('btnDepart').disabled = true; });
 
   // ---------------------------
-  // Boot: load local data files
+  // Boot: load local data files (with clear errors)
   // ---------------------------
+  async function loadJson(path) {
+    const url = new URL(path, window.location.href).toString();
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(`Failed to load ${url} — HTTP ${res.status}`);
+    }
+    try {
+      return await res.json();
+    } catch (e) {
+      const text = await res.text();
+      throw new Error(`JSON parse failed for ${url}. First 100 chars:
+${text.slice(0,100)}`);
+    }
+  }
+
   async function boot(){
     try{
       const [p,g,s,c] = await Promise.all([
-        fetch('assets/ports.json').then(r=>r.json()),
-        fetch('assets/goods.json').then(r=>r.json()),
-        fetch('assets/ships.json').then(r=>r.json()),
-        fetch('assets/crew.json').then(r=>r.json())
+        loadJson('assets/ports.json'),
+        loadJson('assets/goods.json'),
+        loadJson('assets/ships.json'),
+        loadJson('assets/crew.json')
       ]);
       data.ports=p; data.goods=g; data.ships=s; data.crew=c;
-      // Fill port dropdown
       ui.dstPort.innerHTML = data.ports.map(p => `<option>${p.name}</option>`).join('');
       showStatus('Data loaded. Login or open Storage to load shared state.');
-    }catch(err){ console.error(err); alert('Failed to load assets/*.json — make sure they exist.'); }
+    }catch(err){ console.error(err); alert(err.message); showStatus('Failed to load one or more assets/*.json — check file paths and GitHub Pages folder.'); }
   }
   boot();
   </script>
